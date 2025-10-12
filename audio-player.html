@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Аудио урок</title>
+    <title>Аудио Урок</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body {
@@ -11,44 +11,80 @@
             padding: 20px;
             background: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
+            max-width: 100%;
+            overflow-x: hidden;
         }
         .audio-player {
             width: 100%;
-            margin: 20px 0;
+            margin: 15px 0;
+        }
+        .transcript-container {
+            margin-top: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
         }
         .transcript {
-            line-height: 1.6;
+            line-height: 1.8;
             font-size: 18px;
-            margin-top: 20px;
+            padding: 10px;
         }
         .word {
-            transition: all 0.3s ease;
-            padding: 2px 4px;
-            border-radius: 3px;
+            transition: all 0.2s ease;
+            padding: 4px 6px;
+            margin: 2px;
+            border-radius: 6px;
+            display: inline-block;
+            cursor: pointer;
         }
-        .active {
+        .word.active {
             background-color: var(--tg-theme-button-color, #40a7e3);
             color: var(--tg-theme-button-text-color, #ffffff);
-            font-weight: bold;
+            font-weight: 600;
+            transform: scale(1.05);
+        }
+        .word:hover {
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
         }
         .controls {
             display: flex;
             gap: 10px;
-            margin: 20px 0;
+            margin: 15px 0;
+            flex-wrap: wrap;
         }
         button {
             background: var(--tg-theme-button-color, #40a7e3);
             color: var(--tg-theme-button-text-color, #ffffff);
             border: none;
-            padding: 10px 15px;
-            border-radius: 10px;
+            padding: 12px 18px;
+            border-radius: 12px;
             cursor: pointer;
             flex: 1;
+            min-width: 120px;
+            font-size: 16px;
+            transition: opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:active {
+            opacity: 0.8;
+        }
+        .lesson-title {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
-    <div id="lesson-title">Загрузка...</div>
+    <div class="lesson-title" id="lessonTitle">Загрузка урока...</div>
     
     <audio id="audioPlayer" class="audio-player" controls>
         Ваш браузер не поддерживает аудио элементы.
@@ -57,60 +93,62 @@
     <div class="controls">
         <button onclick="playPause()">⏯️ Пауза/Старт</button>
         <button onclick="restart()">🔄 Заново</button>
+        <button onclick="skipBack()">⏪ На 5с назад</button>
+        <button onclick="skipForward()">⏩ На 5с вперед</button>
     </div>
     
-    <div id="transcript" class="transcript"></div>
+    <div class="transcript-container">
+        <div id="transcript" class="transcript"></div>
+    </div>
 
     <script>
+        // Инициализация Telegram Web App
         const tg = window.Telegram.WebApp;
-        tg.expand();
+        tg.expand(); // Раскрываем на весь экран
         tg.BackButton.show();
         
         let currentLesson = null;
         let words = [];
         
-        // Получаем ID урока из URL параметров
-        const urlParams = new URLSearchParams(window.location.search);
-        const lessonId = urlParams.get('lesson');
-        
-        // Загружаем данные урока
-        async function loadLesson() {
-            try {
-                const response = await fetch(`https://yourdomain.com/api/lessons/${lessonId}`);
-                currentLesson = await response.json();
-                
-                // Настраиваем аудио плеер
-                const audioPlayer = document.getElementById('audioPlayer');
-                audioPlayer.src = currentLesson.audio_url;
-                
-                // Парсим слова с временными метками
-                words = parseWordsFromWhisperResult(currentLesson.whisper_data);
-                
-                // Отображаем транскрипт
-                renderTranscript();
-                
-                // Запускаем отслеживание времени
-                audioPlayer.addEventListener('timeupdate', highlightCurrentWord);
-                
-                document.getElementById('lesson-title').textContent = currentLesson.title;
-                
-            } catch (error) {
-                console.error('Ошибка загрузки урока:', error);
+        // Получаем данные из URL параметров или из Telegram Web App
+        function loadLessonData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
+            
+            if (encodedData) {
+                // Данные переданы через URL параметры
+                try {
+                    const decodedData = atob(encodedData);
+                    currentLesson = JSON.parse(decodedData);
+                    initializePlayer();
+                } catch (error) {
+                    showError('Ошибка загрузки данных урока');
+                }
+            } else {
+                // Альтернативный способ: запрашиваем данные у бота через Telegram
+                showError('Данные урока не переданы');
             }
         }
         
-        function parseWordsFromWhisperResult(whisperData) {
-            const words = [];
-            whisperData.segments.forEach(segment => {
-                segment.words.forEach(word => {
-                    words.push({
-                        text: word.word,
-                        start: word.start,
-                        end: word.end
-                    });
-                });
-            });
-            return words;
+        function initializePlayer() {
+            if (!currentLesson) return;
+            
+            // Устанавливаем аудио
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.src = currentLesson.audio_url;
+            
+            // Устанавливаем слова
+            words = currentLesson.words || [];
+            
+            // Отображаем интерфейс
+            document.getElementById('lessonTitle').textContent = currentLesson.title;
+            renderTranscript();
+            
+            // Запускаем отслеживание времени
+            audioPlayer.addEventListener('timeupdate', highlightCurrentWord);
+            
+            // Добавляем обработчики для кликов по словам
+            addWordClickHandlers();
         }
         
         function renderTranscript() {
@@ -122,7 +160,17 @@
                 wordSpan.className = 'word';
                 wordSpan.textContent = word.text + ' ';
                 wordSpan.dataset.index = index;
+                wordSpan.dataset.start = word.start;
                 transcriptDiv.appendChild(wordSpan);
+            });
+        }
+        
+        function addWordClickHandlers() {
+            document.querySelectorAll('.word').forEach(wordSpan => {
+                wordSpan.addEventListener('click', function() {
+                    const startTime = parseFloat(this.dataset.start);
+                    document.getElementById('audioPlayer').currentTime = startTime;
+                });
             });
         }
         
@@ -144,15 +192,17 @@
                 if (currentWordElement) {
                     currentWordElement.classList.add('active');
                     
-                    // Прокручиваем к активному слову
+                    // Плавная прокрутка к активному слову
                     currentWordElement.scrollIntoView({
                         behavior: 'smooth',
-                        block: 'center'
+                        block: 'center',
+                        inline: 'center'
                     });
                 }
             }
         }
         
+        // Управление плеером
         function playPause() {
             const audioPlayer = document.getElementById('audioPlayer');
             if (audioPlayer.paused) {
@@ -168,13 +218,28 @@
             audioPlayer.play();
         }
         
+        function skipBack() {
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 5);
+        }
+        
+        function skipForward() {
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 5);
+        }
+        
+        function showError(message) {
+            document.getElementById('lessonTitle').textContent = 'Ошибка';
+            document.getElementById('transcript').innerHTML = `<div class="loading">${message}</div>`;
+        }
+        
         // Обработчик кнопки "Назад" в Telegram
         tg.BackButton.onClick(() => {
             tg.close();
         });
         
-        // Загружаем урок при старте
-        loadLesson();
+        // Загружаем данные при старте
+        loadLessonData();
     </script>
 </body>
 </html>
