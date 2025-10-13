@@ -170,6 +170,7 @@
                 wordSpan.addEventListener('click', function() {
                     const startTime = parseFloat(this.dataset.start);
                     document.getElementById('audioPlayer').currentTime = startTime;
+                    document.getElementById('audioPlayer').play();
                 });
             });
         }
