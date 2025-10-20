@@ -38,11 +38,13 @@
             margin-top: 20px;
             max-height: 50vh;
             overflow-y: auto;
+            border: 1px solid var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 12px;
+            padding: 15px;
         }
         .transcript {
             line-height: 1.8;
             font-size: 18px;
-            padding: 10px;
         }
         .word {
             transition: all 0.2s ease;
@@ -141,7 +143,7 @@
         <button onclick="changeSpeed(1.5)">🚀 Быстро</button>
     </div>
     
-    <div class="transcript-container">
+    <div class="transcript-container" id="transcriptContainer">
         <div id="transcript" class="transcript"></div>
     </div>
 
@@ -315,13 +317,37 @@
                 if (currentWordElement) {
                     currentWordElement.classList.add('active');
                     
-                    // Плавная прокрутка к активному слову
-                    currentWordElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center',
-                        inline: 'center'
-                    });
+                    // Плавная прокрутка только внутри контейнера с транскриптом
+                    scrollToElementInContainer(currentWordElement);
                 }
+            }
+        }
+        
+        function scrollToElementInContainer(element) {
+            const container = document.getElementById('transcriptContainer');
+            const elementRect = element.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // Проверяем, виден ли элемент в контейнере
+            const isVisible = (
+                elementRect.top >= containerRect.top &&
+                elementRect.bottom <= containerRect.bottom
+            );
+            
+            // Если элемент не виден, прокручиваем к нему
+            if (!isVisible) {
+                const scrollTop = container.scrollTop;
+                const elementOffset = element.offsetTop;
+                const containerHeight = container.clientHeight;
+                const elementHeight = element.clientHeight;
+                
+                // Вычисляем позицию для плавной прокрутки
+                const targetScroll = elementOffset - (containerHeight / 2) + (elementHeight / 2);
+                
+                container.scrollTo({
+                    top: targetScroll,
+                    behavior: 'smooth'
+                });
             }
         }
         
