@@ -34,31 +34,15 @@
             height: 100% !important;
             border: none;
         }
-        .video-placeholder {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            background: #333;
-            flex-direction: column;
-            gap: 10px;
-        }
         .transcript-container {
             margin-top: 20px;
             max-height: 50vh;
             overflow-y: auto;
-            border: 1px solid var(--tg-theme-secondary-bg-color, #f0f0f0);
-            border-radius: 12px;
-            padding: 15px;
         }
         .transcript {
             line-height: 1.8;
             font-size: 18px;
+            padding: 10px;
         }
         .word {
             transition: all 0.2s ease;
@@ -95,14 +79,10 @@
             font-size: 14px;
             transition: opacity 0.2s;
         }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        button:hover:not(:disabled) {
+        button:hover {
             opacity: 0.9;
         }
-        button:active:not(:disabled) {
+        button:active {
             opacity: 0.8;
         }
         .lesson-title {
@@ -116,14 +96,6 @@
             text-align: center;
             padding: 40px;
             font-size: 18px;
-        }
-        .error-message {
-            text-align: center;
-            padding: 20px;
-            background: #ffebee;
-            border-radius: 8px;
-            margin: 10px 0;
-            color: #c62828;
         }
         .toast {
             position: fixed;
@@ -143,44 +115,33 @@
         .toast.show {
             opacity: 1;
         }
-        .status-indicator {
-            font-size: 12px;
-            opacity: 0.7;
-        }
     </style>
 </head>
 <body>
     <div class="lesson-title" id="lessonTitle">Загрузка урока...</div>
     
     <div class="video-container">
-        <div class="video-placeholder" id="videoPlaceholder">
-            <div>Загрузка видео...</div>
-            <div class="status-indicator" id="statusIndicator">Подготовка плеера</div>
-        </div>
         <iframe 
             id="vimeoPlayer" 
             src="" 
             frameborder="0" 
             allow="autoplay; fullscreen; picture-in-picture" 
-            allowfullscreen
-            style="display: none;">
+            allowfullscreen>
         </iframe>
     </div>
     
     <div class="controls">
-        <button onclick="playPause()" id="playPauseBtn" disabled>⏯️ Пауза/Старт</button>
-        <button onclick="restart()" id="restartBtn" disabled>🔄 Заново</button>
-        <button onclick="skipBack()" id="skipBackBtn" disabled>⏪ На 5с назад</button>
-        <button onclick="skipForward()" id="skipForwardBtn" disabled>⏩ На 5с вперед</button>
-        <button onclick="toggleMute()" id="muteBtn" disabled>🔊 Вкл/Выкл звук</button>
-        <button onclick="changeSpeed(0.75)" id="slowBtn" disabled>🐢 Медленно</button>
-        <button onclick="changeSpeed(1.0)" id="normalBtn" disabled>⚡ Нормально</button>
-        <button onclick="changeSpeed(1.5)" id="fastBtn" disabled>🚀 Быстро</button>
+        <button onclick="playPause()">⏯️ Пауза/Старт</button>
+        <button onclick="restart()">🔄 Заново</button>
+        <button onclick="skipBack()">⏪ На 5с назад</button>
+        <button onclick="skipForward()">⏩ На 5с вперед</button>
+        <button onclick="toggleMute()">🔊 Вкл/Выкл звук</button>
+        <button onclick="changeSpeed(0.75)">🐢 Медленно</button>
+        <button onclick="changeSpeed(1.0)">⚡ Нормально</button>
+        <button onclick="changeSpeed(1.5)">🚀 Быстро</button>
     </div>
     
-    <div id="errorContainer" style="display: none;"></div>
-    
-    <div class="transcript-container" id="transcriptContainer">
+    <div class="transcript-container">
         <div id="transcript" class="transcript"></div>
     </div>
 
@@ -196,8 +157,6 @@
         let words = [];
         let vimeoPlayer = null;
         let trackingInterval = null;
-        let isPlayerReady = false;
-        let isVideoLoaded = false;
 
         // Получаем данные из URL параметров
         function loadLessonData() {
@@ -208,11 +167,9 @@
                 try {
                     const decodedData = atob(encodedData);
                     currentLesson = JSON.parse(decodedData);
-                    console.log('Lesson data loaded:', currentLesson);
                     initializePlayer();
                 } catch (error) {
-                    console.error('Error parsing lesson data:', error);
-                    showError('Ошибка загрузки данных урока: ' + error.message);
+                    showError('Ошибка загрузки данных урока');
                 }
             } else {
                 showError('Данные урока не переданы');
@@ -222,134 +179,71 @@
         function initializePlayer() {
             if (!currentLesson) return;
             
-            // Отображаем интерфейс
-            document.getElementById('lessonTitle').textContent = currentLesson.title;
+            // Инициализируем Vimeo плеер
+            if (currentLesson.vimeo_id) {
+                initializeVimeoPlayer(currentLesson.vimeo_id);
+            } else {
+                showError('Vimeo ID не указан');
+            }
             
             // Устанавливаем слова
             words = currentLesson.words || [];
-            renderTranscript();
             
-            // Инициализируем Vimeo плеер
-            if (currentLesson.vimeo_id) {
-                console.log('Initializing Vimeo player with ID:', currentLesson.vimeo_id);
-                initializeVimeoPlayer(currentLesson.vimeo_id);
-            } else {
-                showError('Vimeo ID не указан в данных урока');
-            }
+            // Отображаем интерфейс
+            document.getElementById('lessonTitle').textContent = currentLesson.title;
+            renderTranscript();
         }
         
         function initializeVimeoPlayer(vimeoId) {
+            // Сначала устанавливаем src для iframe
             const iframe = document.getElementById('vimeoPlayer');
-            const placeholder = document.getElementById('videoPlaceholder');
-            const statusIndicator = document.getElementById('statusIndicator');
+            iframe.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=0&controls=1&responsive=1`;
             
-            // Проверяем валидность Vimeo ID
-            if (!vimeoId || isNaN(parseInt(vimeoId))) {
-                showError('Неверный Vimeo ID: ' + vimeoId);
-                return;
-            }
+            // Затем инициализируем API
+            vimeoPlayer = new Vimeo.Player(iframe);
             
-            // Создаем URL для Vimeo с параметрами
-            const vimeoUrl = `https://player.vimeo.com/video/${vimeoId}?autoplay=0&controls=1&responsive=1&title=0&byline=0&portrait=0`;
-            console.log('Vimeo URL:', vimeoUrl);
-            
-            iframe.src = vimeoUrl;
-            
-            // Пытаемся инициализировать плеер
-            try {
-                vimeoPlayer = new Vimeo.Player(iframe);
-                console.log('Vimeo Player instance created');
+            // Обработчики событий Vimeo
+            vimeoPlayer.ready().then(() => {
+                console.log('Vimeo player ready');
+                showToast('✅ Видео готово к воспроизведению');
                 
-                // Обработчики событий Vimeo
-                vimeoPlayer.ready().then(() => {
-                    console.log('Vimeo player ready');
-                    isPlayerReady = true;
-                    statusIndicator.textContent = 'Плеер готов';
-                    
-                    // Скрываем placeholder и показываем iframe
-                    setTimeout(() => {
-                        placeholder.style.display = 'none';
-                        iframe.style.display = 'block';
-                        enableControls();
-                        showToast('✅ Видео готово к воспроизведению');
-                    }, 500);
-                    
-                }).catch(error => {
-                    console.error('Vimeo ready error:', error);
-                    statusIndicator.textContent = 'Ошибка инициализации';
-                    showError('Ошибка инициализации Vimeo плеера: ' + error.message);
-                });
-                
-                vimeoPlayer.on('play', function() {
-                    console.log('Video playing');
-                    isVideoLoaded = true;
-                    startTracking();
-                    showToast('▶️ Воспроизведение');
-                });
-                
-                vimeoPlayer.on('pause', function() {
-                    console.log('Video paused');
-                    stopTracking();
-                    showToast('⏸️ Пауза');
-                });
-                
-                vimeoPlayer.on('timeupdate', function(data) {
-                    highlightCurrentWord(data.seconds);
-                });
-                
-                vimeoPlayer.on('loaded', function() {
-                    console.log('Video loaded');
-                    isVideoLoaded = true;
-                    statusIndicator.textContent = 'Видео загружено';
-                });
-                
-                vimeoPlayer.on('error', function(error) {
-                    console.error('Vimeo player error:', error);
-                    let errorMsg = 'Ошибка загрузки видео';
-                    
-                    if (error.name === 'PasswordError') {
-                        errorMsg = 'Видео защищено паролем';
-                    } else if (error.name === 'PrivacyError') {
-                        errorMsg = 'Видео приватное или недоступно';
-                    } else if (error.name === 'NotFoundError') {
-                        errorMsg = 'Видео не найдено. Проверьте Vimeo ID';
-                    }
-                    
-                    statusIndicator.textContent = errorMsg;
-                    showError(errorMsg);
-                });
-                
-                // Слушаем события загрузки iframe
-                iframe.addEventListener('load', function() {
-                    console.log('Iframe loaded');
-                    statusIndicator.textContent = 'Iframe загружен';
-                });
-                
-            } catch (error) {
-                console.error('Error creating Vimeo player:', error);
-                showError('Ошибка создания Vimeo плеера: ' + error.message);
-            }
-        }
-        
-        function enableControls() {
-            const buttons = document.querySelectorAll('.controls button');
-            buttons.forEach(btn => {
-                btn.disabled = false;
+                // Принудительно устанавливаем размеры после загрузки
+                setTimeout(() => {
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                }, 100);
             });
-        }
-        
-        function disableControls() {
-            const buttons = document.querySelectorAll('.controls button');
-            buttons.forEach(btn => {
-                btn.disabled = true;
+            
+            vimeoPlayer.on('play', function() {
+                startTracking();
+                showToast('▶️ Воспроизведение');
+            });
+            
+            vimeoPlayer.on('pause', function() {
+                stopTracking();
+                showToast('⏸️ Пауза');
+            });
+            
+            vimeoPlayer.on('timeupdate', function(data) {
+                highlightCurrentWord(data.seconds);
+            });
+            
+            vimeoPlayer.on('loaded', function() {
+                console.log('Video loaded');
+            });
+            
+            vimeoPlayer.on('error', function(error) {
+                console.error('Vimeo error:', error);
+                showToast('❌ Ошибка загрузки видео');
             });
         }
         
         function startTracking() {
+            // Запускаем отслеживание времени для плавной подсветки
             if (trackingInterval) clearInterval(trackingInterval);
             
             trackingInterval = setInterval(async () => {
-                if (vimeoPlayer && isPlayerReady && isVideoLoaded) {
+                if (vimeoPlayer) {
                     try {
                         const currentTime = await vimeoPlayer.getCurrentTime();
                         highlightCurrentWord(currentTime);
@@ -371,11 +265,6 @@
             const transcriptDiv = document.getElementById('transcript');
             transcriptDiv.innerHTML = '';
             
-            if (words.length === 0) {
-                transcriptDiv.innerHTML = '<div class="loading">Транскрипт не доступен</div>';
-                return;
-            }
-            
             words.forEach((word, index) => {
                 const wordSpan = document.createElement('span');
                 wordSpan.className = 'word';
@@ -385,6 +274,7 @@
                 transcriptDiv.appendChild(wordSpan);
             });
             
+            // Добавляем обработчики для кликов по словам
             addWordClickHandlers();
         }
         
@@ -398,27 +288,45 @@
         }
         
         async function playFromTime(startTime) {
-            if (vimeoPlayer && isPlayerReady && isVideoLoaded) {
+            if (vimeoPlayer) {
                 try {
                     await vimeoPlayer.setCurrentTime(startTime);
                     await vimeoPlayer.play();
                     showToast('🎬 Переходим к фразе...');
                 } catch (error) {
                     console.error('Error seeking:', error);
-                    showToast('❌ Ошибка перемотки');
                 }
-            } else {
-                showToast('⏳ Плеер еще не готов. Подождите...');
             }
         }
         
-        // Управление плеером - ОБНОВЛЕННЫЕ ФУНКЦИИ
-        async function playPause() {
-            if (!isPlayerReady || !isVideoLoaded) {
-                showToast('⏳ Видео еще загружается. Подождите...');
-                return;
-            }
+        function highlightCurrentWord(currentTime) {
+            // Убираем подсветку со всех слов
+            document.querySelectorAll('.word').forEach(word => {
+                word.classList.remove('active');
+            });
             
+            // Находим и подсвечиваем текущее слово
+            const currentWordIndex = words.findIndex(word => 
+                currentTime >= word.start && currentTime < word.end
+            );
+            
+            if (currentWordIndex !== -1) {
+                const currentWordElement = document.querySelector(`.word[data-index="${currentWordIndex}"]`);
+                if (currentWordElement) {
+                    currentWordElement.classList.add('active');
+                    
+                    // Плавная прокрутка к активному слову
+                    currentWordElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'center'
+                    });
+                }
+            }
+        }
+        
+        // Управление плеером
+        async function playPause() {
             if (vimeoPlayer) {
                 try {
                     const paused = await vimeoPlayer.getPaused();
@@ -431,18 +339,11 @@
                     }
                 } catch (error) {
                     console.error('Error play/pause:', error);
-                    // Если ошибка, пробуем использовать встроенные контролы
-                    showToast('❌ Используйте кнопки на плеере');
                 }
             }
         }
         
         async function restart() {
-            if (!isPlayerReady || !isVideoLoaded) {
-                showToast('⏳ Видео еще загружается');
-                return;
-            }
-            
             if (vimeoPlayer) {
                 try {
                     await vimeoPlayer.setCurrentTime(0);
@@ -450,17 +351,11 @@
                     showToast('🔄 Начало урока');
                 } catch (error) {
                     console.error('Error restart:', error);
-                    showToast('❌ Ошибка перезапуска');
                 }
             }
         }
         
         async function skipBack() {
-            if (!isPlayerReady || !isVideoLoaded) {
-                showToast('⏳ Видео еще загружается');
-                return;
-            }
-            
             if (vimeoPlayer) {
                 try {
                     const currentTime = await vimeoPlayer.getCurrentTime();
@@ -473,11 +368,6 @@
         }
         
         async function skipForward() {
-            if (!isPlayerReady || !isVideoLoaded) {
-                showToast('⏳ Видео еще загружается');
-                return;
-            }
-            
             if (vimeoPlayer) {
                 try {
                     const currentTime = await vimeoPlayer.getCurrentTime();
@@ -491,11 +381,6 @@
         }
         
         async function toggleMute() {
-            if (!isPlayerReady || !isVideoLoaded) {
-                showToast('⏳ Видео еще загружается');
-                return;
-            }
-            
             if (vimeoPlayer) {
                 try {
                     const muted = await vimeoPlayer.getMuted();
@@ -508,11 +393,6 @@
         }
         
         async function changeSpeed(rate) {
-            if (!isPlayerReady || !isVideoLoaded) {
-                showToast('⏳ Видео еще загружается');
-                return;
-            }
-            
             if (vimeoPlayer) {
                 try {
                     await vimeoPlayer.setPlaybackRate(rate);
@@ -520,48 +400,6 @@
                 } catch (error) {
                     console.error('Error change speed:', error);
                 }
-            }
-        }
-        
-        function highlightCurrentWord(currentTime) {
-            document.querySelectorAll('.word').forEach(word => {
-                word.classList.remove('active');
-            });
-            
-            const currentWordIndex = words.findIndex(word => 
-                currentTime >= word.start && currentTime < word.end
-            );
-            
-            if (currentWordIndex !== -1) {
-                const currentWordElement = document.querySelector(`.word[data-index="${currentWordIndex}"]`);
-                if (currentWordElement) {
-                    currentWordElement.classList.add('active');
-                    scrollToElementInContainer(currentWordElement);
-                }
-            }
-        }
-        
-        function scrollToElementInContainer(element) {
-            const container = document.getElementById('transcriptContainer');
-            const elementRect = element.getBoundingClientRect();
-            const containerRect = container.getBoundingClientRect();
-            
-            const isVisible = (
-                elementRect.top >= containerRect.top &&
-                elementRect.bottom <= containerRect.bottom
-            );
-            
-            if (!isVisible) {
-                const elementOffset = element.offsetTop;
-                const containerHeight = container.clientHeight;
-                const elementHeight = element.clientHeight;
-                
-                const targetScroll = elementOffset - (containerHeight / 2) + (elementHeight / 2);
-                
-                container.scrollTo({
-                    top: targetScroll,
-                    behavior: 'smooth'
-                });
             }
         }
         
@@ -575,12 +413,8 @@
         }
         
         function showError(message) {
-            const errorContainer = document.getElementById('errorContainer');
-            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
-            errorContainer.style.display = 'block';
-            
             document.getElementById('lessonTitle').textContent = 'Ошибка';
-            disableControls();
+            document.getElementById('transcript').innerHTML = `<div class="loading">${message}</div>`;
         }
         
         // Обработчик кнопки "Назад" в Telegram
