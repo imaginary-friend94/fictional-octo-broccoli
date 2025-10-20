@@ -2,30 +2,41 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Видео Урок</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://player.vimeo.com/api/player.js"></script>
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            padding: 20px;
+            padding: 15px;
             background: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
             max-width: 100%;
             overflow-x: hidden;
             margin: 0;
+            touch-action: pan-y;
         }
+        
         .video-container {
             width: 100%;
             height: 0;
-            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            padding-bottom: 56.25%;
             position: relative;
-            margin: 15px 0;
-            border-radius: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
             overflow: hidden;
             background: #000;
+            -webkit-overflow-scrolling: touch;
         }
+        
         #vimeoPlayer {
             position: absolute;
             top: 0;
@@ -33,87 +44,189 @@
             width: 100% !important;
             height: 100% !important;
             border: none;
+            background: #000;
         }
+        
+        .video-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            background: #1a1a1a;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .retry-button {
+            background: #40a7e3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
         .transcript-container {
-            margin-top: 20px;
-            max-height: 50vh;
+            margin-top: 15px;
+            max-height: 40vh;
             overflow-y: auto;
+            border: 1px solid var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 8px;
+            padding: 12px;
+            -webkit-overflow-scrolling: touch;
         }
+        
         .transcript {
-            line-height: 1.8;
-            font-size: 18px;
-            padding: 10px;
+            line-height: 1.6;
+            font-size: 16px;
+            -webkit-text-size-adjust: 100%;
         }
+        
         .word {
             transition: all 0.2s ease;
-            padding: 4px 6px;
-            margin: 2px;
-            border-radius: 6px;
+            padding: 3px 5px;
+            margin: 1px;
+            border-radius: 4px;
             display: inline-block;
             cursor: pointer;
+            -webkit-tap-highlight-color: rgba(64, 167, 227, 0.3);
         }
+        
         .word.active {
             background-color: var(--tg-theme-button-color, #40a7e3);
             color: var(--tg-theme-button-text-color, #ffffff);
             font-weight: 600;
-            transform: scale(1.05);
         }
+        
         .word:hover {
             background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
         }
+        
         .controls {
             display: flex;
-            gap: 8px;
-            margin: 15px 0;
+            gap: 6px;
+            margin: 12px 0;
             flex-wrap: wrap;
+            touch-action: manipulation;
         }
+        
         button {
             background: var(--tg-theme-button-color, #40a7e3);
             color: var(--tg-theme-button-text-color, #ffffff);
             border: none;
-            padding: 10px 14px;
-            border-radius: 10px;
+            padding: 12px 8px;
+            border-radius: 8px;
             cursor: pointer;
             flex: 1;
-            min-width: 100px;
-            font-size: 14px;
+            min-width: 70px;
+            font-size: 12px;
             transition: opacity 0.2s;
+            touch-action: manipulation;
         }
-        button:hover {
-            opacity: 0.9;
+        
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
-        button:active {
-            opacity: 0.8;
+        
+        button:active:not(:disabled) {
+            opacity: 0.7;
+            transform: scale(0.98);
         }
+        
         .lesson-title {
             text-align: center;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             color: var(--tg-theme-text-color, #000000);
+            -webkit-text-size-adjust: 100%;
         }
+        
         .loading {
             text-align: center;
-            padding: 40px;
-            font-size: 18px;
+            padding: 30px;
+            font-size: 16px;
         }
+        
+        .error-message {
+            text-align: center;
+            padding: 15px;
+            background: #ffebee;
+            border-radius: 6px;
+            margin: 8px 0;
+            color: #c62828;
+            font-size: 14px;
+        }
+        
         .toast {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             color: white;
-            padding: 12px 20px;
-            border-radius: 10px;
+            padding: 14px 20px;
+            border-radius: 8px;
             font-size: 14px;
-            z-index: 1000;
+            z-index: 10000;
             opacity: 0;
             transition: opacity 0.3s ease;
             pointer-events: none;
+            max-width: 80%;
+            text-align: center;
         }
+        
         .toast.show {
             opacity: 1;
+        }
+        
+        .status-indicator {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        /* Мобильные стили */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .controls {
+                gap: 4px;
+            }
+            
+            button {
+                padding: 10px 6px;
+                font-size: 11px;
+                min-width: 60px;
+            }
+            
+            .transcript {
+                font-size: 15px;
+                line-height: 1.5;
+            }
+            
+            .video-container {
+                margin: 8px 0;
+            }
+        }
+        
+        /* Предотвращение масштабирования на iOS */
+        @supports (-webkit-touch-callout: none) {
+            body {
+                -webkit-text-size-adjust: 100%;
+            }
         }
     </style>
 </head>
@@ -121,27 +234,39 @@
     <div class="lesson-title" id="lessonTitle">Загрузка урока...</div>
     
     <div class="video-container">
+        <div class="video-placeholder" id="videoPlaceholder">
+            <div>Подготовка видео...</div>
+            <div class="status-indicator" id="statusIndicator">Инициализация</div>
+            <button class="retry-button" onclick="retryLoading()" style="display: none;" id="retryBtn">Повторить загрузку</button>
+        </div>
         <iframe 
             id="vimeoPlayer" 
             src="" 
             frameborder="0" 
             allow="autoplay; fullscreen; picture-in-picture" 
-            allowfullscreen>
+            allowfullscreen
+            style="display: none;"
+            loading="lazy">
         </iframe>
     </div>
     
     <div class="controls">
-        <button onclick="playPause()">⏯️ Пауза/Старт</button>
-        <button onclick="restart()">🔄 Заново</button>
-        <button onclick="skipBack()">⏪ На 5с назад</button>
-        <button onclick="skipForward()">⏩ На 5с вперед</button>
-        <button onclick="toggleMute()">🔊 Вкл/Выкл звук</button>
-        <button onclick="changeSpeed(0.75)">🐢 Медленно</button>
-        <button onclick="changeSpeed(1.0)">⚡ Нормально</button>
-        <button onclick="changeSpeed(1.5)">🚀 Быстро</button>
+        <button onclick="handlePlayPause()" id="playPauseBtn" disabled>⏯️ Старт</button>
+        <button onclick="restart()" id="restartBtn" disabled>🔄 Заново</button>
+        <button onclick="skipBack()" id="skipBackBtn" disabled>⏪ -5с</button>
+        <button onclick="skipForward()" id="skipForwardBtn" disabled>⏩ +5с</button>
+        <button onclick="toggleMute()" id="muteBtn" disabled>🔊 Звук</button>
+    </div>
+
+    <div class="controls">
+        <button onclick="changeSpeed(0.75)" id="slowBtn" disabled>🐢 0.75x</button>
+        <button onclick="changeSpeed(1.0)" id="normalBtn" disabled>⚡ 1.0x</button>
+        <button onclick="changeSpeed(1.25)" id="fastBtn" disabled>🚀 1.25x</button>
     </div>
     
-    <div class="transcript-container">
+    <div id="errorContainer" style="display: none;"></div>
+    
+    <div class="transcript-container" id="transcriptContainer">
         <div id="transcript" class="transcript"></div>
     </div>
 
@@ -157,6 +282,10 @@
         let words = [];
         let vimeoPlayer = null;
         let trackingInterval = null;
+        let isPlayerReady = false;
+        let isVideoLoaded = false;
+        let loadAttempts = 0;
+        const MAX_LOAD_ATTEMPTS = 3;
 
         // Получаем данные из URL параметров
         function loadLessonData() {
@@ -167,8 +296,10 @@
                 try {
                     const decodedData = atob(encodedData);
                     currentLesson = JSON.parse(decodedData);
+                    console.log('Lesson data loaded:', currentLesson);
                     initializePlayer();
                 } catch (error) {
+                    console.error('Error parsing lesson data:', error);
                     showError('Ошибка загрузки данных урока');
                 }
             } else {
@@ -179,91 +310,237 @@
         function initializePlayer() {
             if (!currentLesson) return;
             
-            // Инициализируем Vimeo плеер
+            document.getElementById('lessonTitle').textContent = currentLesson.title;
+            words = currentLesson.words || [];
+            renderTranscript();
+            
             if (currentLesson.vimeo_id) {
                 initializeVimeoPlayer(currentLesson.vimeo_id);
             } else {
                 showError('Vimeo ID не указан');
             }
-            
-            // Устанавливаем слова
-            words = currentLesson.words || [];
-            
-            // Отображаем интерфейс
-            document.getElementById('lessonTitle').textContent = currentLesson.title;
-            renderTranscript();
         }
         
         function initializeVimeoPlayer(vimeoId) {
-            // Сначала устанавливаем src для iframe
+            loadAttempts++;
             const iframe = document.getElementById('vimeoPlayer');
-            iframe.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=0&controls=1&responsive=1`;
+            const placeholder = document.getElementById('videoPlaceholder');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const retryBtn = document.getElementById('retryBtn');
             
-            // Затем инициализируем API
-            vimeoPlayer = new Vimeo.Player(iframe);
+            retryBtn.style.display = 'none';
+            statusIndicator.textContent = `Загрузка (попытка ${loadAttempts}/${MAX_LOAD_ATTEMPTS})`;
             
-            // Обработчики событий Vimeo
-            vimeoPlayer.ready().then(() => {
-                console.log('Vimeo player ready');
-                showToast('✅ Видео готово к воспроизведению');
+            if (!vimeoId || isNaN(parseInt(vimeoId))) {
+                showError('Неверный Vimeo ID');
+                return;
+            }
+
+            // Очищаем предыдущий iframe если есть
+            iframe.src = '';
+            
+            // Создаем URL с мобильными оптимизациями
+            const vimeoUrl = `https://player.vimeo.com/video/${vimeoId}?autoplay=0&controls=1&responsive=1&title=0&byline=0&portrait=0&dnt=1`;
+            
+            // Добавляем задержку для мобильных устройств
+            setTimeout(() => {
+                iframe.src = vimeoUrl;
+                console.log('Vimeo iframe source set');
                 
-                // Принудительно устанавливаем размеры после загрузки
-                setTimeout(() => {
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
-                }, 100);
-            });
-            
-            vimeoPlayer.on('play', function() {
-                startTracking();
-                showToast('▶️ Воспроизведение');
-            });
-            
-            vimeoPlayer.on('pause', function() {
-                stopTracking();
-                showToast('⏸️ Пауза');
-            });
-            
-            vimeoPlayer.on('timeupdate', function(data) {
-                highlightCurrentWord(data.seconds);
-            });
-            
-            vimeoPlayer.on('loaded', function() {
-                console.log('Video loaded');
-            });
-            
-            vimeoPlayer.on('error', function(error) {
-                console.error('Vimeo error:', error);
-                showToast('❌ Ошибка загрузки видео');
-            });
-        }
-        
-        function startTracking() {
-            // Запускаем отслеживание времени для плавной подсветки
-            if (trackingInterval) clearInterval(trackingInterval);
-            
-            trackingInterval = setInterval(async () => {
-                if (vimeoPlayer) {
-                    try {
-                        const currentTime = await vimeoPlayer.getCurrentTime();
-                        highlightCurrentWord(currentTime);
-                    } catch (error) {
-                        console.error('Error getting time:', error);
-                    }
+                try {
+                    vimeoPlayer = new Vimeo.Player(iframe);
+                    
+                    // Быстрая проверка готовности
+                    const readyTimeout = setTimeout(() => {
+                        if (!isPlayerReady) {
+                            statusIndicator.textContent = 'Долгая загрузка...';
+                        }
+                    }, 5000);
+                    
+                    vimeoPlayer.ready().then(() => {
+                        clearTimeout(readyTimeout);
+                        console.log('Vimeo player ready on mobile');
+                        isPlayerReady = true;
+                        statusIndicator.textContent = 'Плеер готов';
+                        
+                        setTimeout(() => {
+                            placeholder.style.display = 'none';
+                            iframe.style.display = 'block';
+                            enableControls();
+                            showToast('✅ Видео готово');
+                        }, 1000);
+                        
+                    }).catch(error => {
+                        clearTimeout(readyTimeout);
+                        console.error('Vimeo ready error on mobile:', error);
+                        handleMobileLoadError(error);
+                    });
+                    
+                    vimeoPlayer.on('play', function() {
+                        console.log('Video playing on mobile');
+                        isVideoLoaded = true;
+                        startTracking();
+                    });
+                    
+                    vimeoPlayer.on('loaded', function() {
+                        console.log('Video loaded on mobile');
+                        isVideoLoaded = true;
+                        statusIndicator.textContent = 'Видео загружено';
+                    });
+                    
+                    vimeoPlayer.on('error', function(error) {
+                        console.error('Vimeo error on mobile:', error);
+                        handleMobileLoadError(error);
+                    });
+                    
+                    // Обработчик для iframe
+                    iframe.addEventListener('load', function() {
+                        console.log('Iframe loaded on mobile');
+                        statusIndicator.textContent = 'Плеер загружен';
+                    });
+                    
+                    iframe.addEventListener('error', function() {
+                        console.error('Iframe error on mobile');
+                        handleMobileLoadError(new Error('Iframe loading failed'));
+                    });
+                    
+                } catch (error) {
+                    console.error('Error creating Vimeo player on mobile:', error);
+                    handleMobileLoadError(error);
                 }
-            }, 100);
+            }, 100); // Небольшая задержка для стабильности
         }
         
-        function stopTracking() {
-            if (trackingInterval) {
-                clearInterval(trackingInterval);
-                trackingInterval = null;
+        function handleMobileLoadError(error) {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const retryBtn = document.getElementById('retryBtn');
+            
+            let errorMessage = 'Ошибка загрузки';
+            
+            if (error.name === 'TypeError' || error.message.includes('Network')) {
+                errorMessage = 'Проблемы с сетью';
+            } else if (error.name === 'SecurityError') {
+                errorMessage = 'Ошибка безопасности';
+            }
+            
+            statusIndicator.textContent = errorMessage;
+            
+            if (loadAttempts < MAX_LOAD_ATTEMPTS) {
+                retryBtn.style.display = 'block';
+                retryBtn.textContent = `Повторить (${loadAttempts}/${MAX_LOAD_ATTEMPTS})`;
+            } else {
+                showError('Не удалось загрузить видео. Попробуйте позже.');
             }
         }
         
+        function retryLoading() {
+            if (currentLesson && currentLesson.vimeo_id) {
+                initializeVimeoPlayer(currentLesson.vimeo_id);
+            }
+        }
+        
+        function enableControls() {
+            document.querySelectorAll('button:not(.retry-button)').forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+        
+        function disableControls() {
+            document.querySelectorAll('button:not(.retry-button)').forEach(btn => {
+                btn.disabled = true;
+            });
+        }
+        
+        // Управление плеером с мобильной оптимизацией
+        async function handlePlayPause() {
+            if (!isPlayerReady || !isVideoLoaded) {
+                showToast('📱 Загружаем видео...');
+                return;
+            }
+            
+            try {
+                const paused = await vimeoPlayer.getPaused();
+                if (paused) {
+                    // На мобильных устройствах autoplay может быть ограничен
+                    await vimeoPlayer.play().catch(e => {
+                        showToast('▶️ Нажмите play на плеере');
+                    });
+                } else {
+                    await vimeoPlayer.pause();
+                }
+            } catch (error) {
+                console.log('Play/pause error on mobile:', error);
+                showToast('📱 Используйте кнопки на плеере');
+            }
+        }
+        
+        // Остальные функции управления остаются такими же, но с проверкой готовности
+        async function restart() {
+            if (isPlayerReady && isVideoLoaded && vimeoPlayer) {
+                try {
+                    await vimeoPlayer.setCurrentTime(0);
+                    showToast('🔄 Начало урока');
+                } catch (error) {
+                    console.log('Restart error on mobile:', error);
+                }
+            }
+        }
+        
+        async function skipBack() {
+            if (isPlayerReady && isVideoLoaded && vimeoPlayer) {
+                try {
+                    const currentTime = await vimeoPlayer.getCurrentTime();
+                    await vimeoPlayer.setCurrentTime(Math.max(0, currentTime - 5));
+                } catch (error) {
+                    console.log('Skip back error on mobile:', error);
+                }
+            }
+        }
+        
+        async function skipForward() {
+            if (isPlayerReady && isVideoLoaded && vimeoPlayer) {
+                try {
+                    const currentTime = await vimeoPlayer.getCurrentTime();
+                    const duration = await vimeoPlayer.getDuration();
+                    await vimeoPlayer.setCurrentTime(Math.min(duration, currentTime + 5));
+                } catch (error) {
+                    console.log('Skip forward error on mobile:', error);
+                }
+            }
+        }
+        
+        async function toggleMute() {
+            if (isPlayerReady && isVideoLoaded && vimeoPlayer) {
+                try {
+                    const muted = await vimeoPlayer.getMuted();
+                    await vimeoPlayer.setMuted(!muted);
+                    showToast(!muted ? '🔇 Без звука' : '🔊 Звук включен');
+                } catch (error) {
+                    console.log('Mute error on mobile:', error);
+                }
+            }
+        }
+        
+        async function changeSpeed(rate) {
+            if (isPlayerReady && isVideoLoaded && vimeoPlayer) {
+                try {
+                    await vimeoPlayer.setPlaybackRate(rate);
+                    showToast(`🎚️ ${rate}x`);
+                } catch (error) {
+                    console.log('Speed change error on mobile:', error);
+                }
+            }
+        }
+        
+        // Остальные функции (renderTranscript, highlightCurrentWord и т.д.) остаются без изменений
         function renderTranscript() {
             const transcriptDiv = document.getElementById('transcript');
             transcriptDiv.innerHTML = '';
+            
+            if (words.length === 0) {
+                transcriptDiv.innerHTML = '<div class="loading">Транскрипт не доступен</div>';
+                return;
+            }
             
             words.forEach((word, index) => {
                 const wordSpan = document.createElement('span');
@@ -274,7 +551,6 @@
                 transcriptDiv.appendChild(wordSpan);
             });
             
-            // Добавляем обработчики для кликов по словам
             addWordClickHandlers();
         }
         
@@ -288,24 +564,43 @@
         }
         
         async function playFromTime(startTime) {
-            if (vimeoPlayer) {
+            if (isPlayerReady && isVideoLoaded && vimeoPlayer) {
                 try {
                     await vimeoPlayer.setCurrentTime(startTime);
-                    await vimeoPlayer.play();
                     showToast('🎬 Переходим к фразе...');
                 } catch (error) {
-                    console.error('Error seeking:', error);
+                    console.log('Seek error on mobile:', error);
                 }
             }
         }
         
+        function startTracking() {
+            if (trackingInterval) clearInterval(trackingInterval);
+            
+            trackingInterval = setInterval(async () => {
+                if (vimeoPlayer && isPlayerReady && isVideoLoaded) {
+                    try {
+                        const currentTime = await vimeoPlayer.getCurrentTime();
+                        highlightCurrentWord(currentTime);
+                    } catch (error) {
+                        console.log('Tracking error on mobile:', error);
+                    }
+                }
+            }, 100);
+        }
+        
+        function stopTracking() {
+            if (trackingInterval) {
+                clearInterval(trackingInterval);
+                trackingInterval = null;
+            }
+        }
+        
         function highlightCurrentWord(currentTime) {
-            // Убираем подсветку со всех слов
             document.querySelectorAll('.word').forEach(word => {
                 word.classList.remove('active');
             });
             
-            // Находим и подсвечиваем текущее слово
             const currentWordIndex = words.findIndex(word => 
                 currentTime >= word.start && currentTime < word.end
             );
@@ -314,92 +609,32 @@
                 const currentWordElement = document.querySelector(`.word[data-index="${currentWordIndex}"]`);
                 if (currentWordElement) {
                     currentWordElement.classList.add('active');
-                    
-                    // Плавная прокрутка к активному слову
-                    currentWordElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center',
-                        inline: 'center'
-                    });
+                    scrollToElementInContainer(currentWordElement);
                 }
             }
         }
         
-        // Управление плеером
-        async function playPause() {
-            if (vimeoPlayer) {
-                try {
-                    const paused = await vimeoPlayer.getPaused();
-                    if (paused) {
-                        await vimeoPlayer.play();
-                        showToast('▶️ Воспроизведение');
-                    } else {
-                        await vimeoPlayer.pause();
-                        showToast('⏸️ Пауза');
-                    }
-                } catch (error) {
-                    console.error('Error play/pause:', error);
-                }
-            }
-        }
-        
-        async function restart() {
-            if (vimeoPlayer) {
-                try {
-                    await vimeoPlayer.setCurrentTime(0);
-                    await vimeoPlayer.play();
-                    showToast('🔄 Начало урока');
-                } catch (error) {
-                    console.error('Error restart:', error);
-                }
-            }
-        }
-        
-        async function skipBack() {
-            if (vimeoPlayer) {
-                try {
-                    const currentTime = await vimeoPlayer.getCurrentTime();
-                    await vimeoPlayer.setCurrentTime(Math.max(0, currentTime - 5));
-                    showToast('⏪ На 5с назад');
-                } catch (error) {
-                    console.error('Error skip back:', error);
-                }
-            }
-        }
-        
-        async function skipForward() {
-            if (vimeoPlayer) {
-                try {
-                    const currentTime = await vimeoPlayer.getCurrentTime();
-                    const duration = await vimeoPlayer.getDuration();
-                    await vimeoPlayer.setCurrentTime(Math.min(duration, currentTime + 5));
-                    showToast('⏩ На 5с вперед');
-                } catch (error) {
-                    console.error('Error skip forward:', error);
-                }
-            }
-        }
-        
-        async function toggleMute() {
-            if (vimeoPlayer) {
-                try {
-                    const muted = await vimeoPlayer.getMuted();
-                    await vimeoPlayer.setMuted(!muted);
-                    showToast(!muted ? '🔇 Без звука' : '🔊 Звук включен');
-                } catch (error) {
-                    console.error('Error toggle mute:', error);
-                }
-            }
-        }
-        
-        async function changeSpeed(rate) {
-            if (vimeoPlayer) {
-                try {
-                    await vimeoPlayer.setPlaybackRate(rate);
-                    showToast(`🎚️ Скорость: ${rate}x`);
-                } catch (error) {
-                    console.error('Error change speed:', error);
-                }
+        function scrollToElementInContainer(element) {
+            const container = document.getElementById('transcriptContainer');
+            const elementRect = element.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            const isVisible = (
+                elementRect.top >= containerRect.top &&
+                elementRect.bottom <= containerRect.bottom
+            );
+            
+            if (!isVisible) {
+                const elementOffset = element.offsetTop;
+                const containerHeight = container.clientHeight;
+                const elementHeight = element.clientHeight;
+                
+                const targetScroll = elementOffset - (containerHeight / 2) + (elementHeight / 2);
+                
+                container.scrollTo({
+                    top: targetScroll,
+                    behavior: 'smooth'
+                });
             }
         }
         
@@ -413,8 +648,10 @@
         }
         
         function showError(message) {
-            document.getElementById('lessonTitle').textContent = 'Ошибка';
-            document.getElementById('transcript').innerHTML = `<div class="loading">${message}</div>`;
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+            errorContainer.style.display = 'block';
+            disableControls();
         }
         
         // Обработчик кнопки "Назад" в Telegram
