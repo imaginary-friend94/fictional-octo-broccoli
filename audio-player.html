@@ -136,24 +136,7 @@
             // Устанавливаем аудио
             const audioPlayer = document.getElementById('audioPlayer');
 
-            if (currentLesson.audio_data) {
-                // Декодируем base64 и создаем blob
-                try {
-                    const audioBytes = base64ToUint8Array(currentLesson.audio_data);
-                    const blob = new Blob([audioBytes], { type: currentLesson.file_type });
-                    const blobUrl = URL.createObjectURL(blob);
-                    
-                    audioPlayer.src = blobUrl;
-                    
-                    showToast('✅ Видео загружено в память');
-                    
-                } catch (error) {
-                    console.error('Error loading video:', error);
-                    showToast('❌ Ошибка загрузки видео');
-                }
-            }
-            
-            //audioPlayer.src = currentLesson.audio_url;
+            audioPlayer.src = currentLesson.audio_url;
             
             // Устанавливаем слова
             words = currentLesson.words || [];
