@@ -30,8 +30,8 @@
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100% !important;
+            height: 100% !important;
             border: none;
         }
         .transcript-container {
@@ -121,7 +121,13 @@
     <div class="lesson-title" id="lessonTitle">Загрузка урока...</div>
     
     <div class="video-container">
-        <div id="vimeoPlayer"></div>
+        <iframe 
+            id="vimeoPlayer" 
+            src="" 
+            frameborder="0" 
+            allow="autoplay; fullscreen; picture-in-picture" 
+            allowfullscreen>
+        </iframe>
     </div>
     
     <div class="controls">
@@ -189,22 +195,23 @@
         }
         
         function initializeVimeoPlayer(vimeoId) {
-            const options = {
-                id: parseInt(vimeoId),
-                width: '100%',
-                height: '100%',
-                autoplay: false,
-                muted: false,
-                controls: true,
-                responsive: true
-            };
+            // Сначала устанавливаем src для iframe
+            const iframe = document.getElementById('vimeoPlayer');
+            iframe.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=0&controls=1&responsive=1`;
             
-            vimeoPlayer = new Vimeo.Player('vimeoPlayer', options);
+            // Затем инициализируем API
+            vimeoPlayer = new Vimeo.Player(iframe);
             
             // Обработчики событий Vimeo
             vimeoPlayer.ready().then(() => {
                 console.log('Vimeo player ready');
                 showToast('✅ Видео готово к воспроизведению');
+                
+                // Принудительно устанавливаем размеры после загрузки
+                setTimeout(() => {
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                }, 100);
             });
             
             vimeoPlayer.on('play', function() {
