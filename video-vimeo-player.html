@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Видео Урок</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://player.vimeo.com/api/player.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        .video-container {
+            width: 100%;
+            height: 250px;
+            margin: 15px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+        #vimeoPlayer {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .transcript-container {
+            margin-top: 20px;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+        .transcript {
+            line-height: 1.8;
+            font-size: 18px;
+            padding: 10px;
+        }
+        .word {
+            transition: all 0.2s ease;
+            padding: 4px 6px;
+            margin: 2px;
+            border-radius: 6px;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .word.active {
+            background-color: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            font-weight: 600;
+            transform: scale(1.05);
+        }
+        .word:hover {
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+        button {
+            background: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            flex: 1;
+            min-width: 100px;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:active {
+            opacity: 0.8;
+        }
+        .lesson-title {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+        }
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="lesson-title" id="lessonTitle">Загрузка урока...</div>
+    
+    <div class="video-container">
+        <div id="vimeoPlayer"></div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="playPause()">⏯️ Пауза/Старт</button>
+        <button onclick="restart()">🔄 Заново</button>
+        <button onclick="skipBack()">⏪ На 5с назад</button>
+        <button onclick="skipForward()">⏩ На 5с вперед</button>
+        <button onclick="toggleMute()">🔊 Вкл/Выкл звук</button>
+        <button onclick="changeSpeed(0.75)">🐢 Медленно</button>
+        <button onclick="changeSpeed(1.0)">⚡ Нормально</button>
+        <button onclick="changeSpeed(1.5)">🚀 Быстро</button>
+    </div>
+    
+    <div class="transcript-container">
+        <div id="transcript" class="transcript"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.BackButton.show();
+        
+        let currentLesson = null;
+        let words = [];
+        let vimeoPlayer = null;
+        let trackingInterval = null;
+
+        // Получаем данные из URL параметров
+        function loadLessonData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
+            
+            if (encodedData) {
+                try {
+                    const decodedData = atob(encodedData);
+                    currentLesson = JSON.parse(decodedData);
+                    initializePlayer();
+                } catch (error) {
+                    showError('Ошибка загрузки данных урока');
+                }
+            } else {
+                showError('Данные урока не переданы');
+            }
+        }
+        
+        function initializePlayer() {
+            if (!currentLesson) return;
+            
+            // Инициализируем Vimeo плеер
+            if (currentLesson.vimeo_id) {
+                initializeVimeoPlayer(currentLesson.vimeo_id);
+            } else {
+                showError('Vimeo ID не указан');
+            }
+            
+            // Устанавливаем слова
+            words = currentLesson.words || [];
+            
+            // Отображаем интерфейс
+            document.getElementById('lessonTitle').textContent = currentLesson.title;
+            renderTranscript();
+        }
+        
+        function initializeVimeoPlayer(vimeoId) {
+            const options = {
+                id: parseInt(vimeoId),
+                width: '100%',
+                height: '100%',
+                autoplay: false,
+                muted: false,
+                controls: true
+            };
+            
+            vimeoPlayer = new Vimeo.Player('vimeoPlayer', options);
+            
+            // Обработчики событий Vimeo
+            vimeoPlayer.ready().then(() => {
+                showToast('✅ Видео готово к воспроизведению');
+            });
+            
+            vimeoPlayer.on('play', function() {
+                startTracking();
+                showToast('▶️ Воспроизведение');
+            });
+            
+            vimeoPlayer.on('pause', function() {
+                stopTracking();
+                showToast('⏸️ Пауза');
+            });
+            
+            vimeoPlayer.on('timeupdate', function(data) {
+                highlightCurrentWord(data.seconds);
+            });
+            
+            vimeoPlayer.on('error', function(error) {
+                console.error('Vimeo error:', error);
+                showToast('❌ Ошибка загрузки видео');
+            });
+        }
+        
+        function startTracking() {
+            // Запускаем отслеживание времени для плавной подсветки
+            if (trackingInterval) clearInterval(trackingInterval);
+            
+            trackingInterval = setInterval(async () => {
+                if (vimeoPlayer) {
+                    try {
+                        const currentTime = await vimeoPlayer.getCurrentTime();
+                        highlightCurrentWord(currentTime);
+                    } catch (error) {
+                        console.error('Error getting time:', error);
+                    }
+                }
+            }, 100);
+        }
+        
+        function stopTracking() {
+            if (trackingInterval) {
+                clearInterval(trackingInterval);
+                trackingInterval = null;
+            }
+        }
+        
+        function renderTranscript() {
+            const transcriptDiv = document.getElementById('transcript');
+            transcriptDiv.innerHTML = '';
+            
+            words.forEach((word, index) => {
+                const wordSpan = document.createElement('span');
+                wordSpan.className = 'word';
+                wordSpan.textContent = word.text + ' ';
+                wordSpan.dataset.index = index;
+                wordSpan.dataset.start = word.start;
+                transcriptDiv.appendChild(wordSpan);
+            });
+            
+            // Добавляем обработчики для кликов по словам
+            addWordClickHandlers();
+        }
+        
+        function addWordClickHandlers() {
+            document.querySelectorAll('.word').forEach(wordSpan => {
+                wordSpan.addEventListener('click', function() {
+                    const startTime = parseFloat(this.dataset.start);
+                    playFromTime(startTime);
+                });
+            });
+        }
+        
+        async function playFromTime(startTime) {
+            if (vimeoPlayer) {
+                try {
+                    await vimeoPlayer.setCurrentTime(startTime);
+                    await vimeoPlayer.play();
+                    showToast('🎬 Переходим к фразе...');
+                } catch (error) {
+                    console.error('Error seeking:', error);
+                }
+            }
+        }
+        
+        function highlightCurrentWord(currentTime) {
+            // Убираем подсветку со всех слов
+            document.querySelectorAll('.word').forEach(word => {
+                word.classList.remove('active');
+            });
+            
+            // Находим и подсвечиваем текущее слово
+            const currentWordIndex = words.findIndex(word => 
+                currentTime >= word.start && currentTime < word.end
+            );
+            
+            if (currentWordIndex !== -1) {
+                const currentWordElement = document.querySelector(`.word[data-index="${currentWordIndex}"]`);
+                if (currentWordElement) {
+                    currentWordElement.classList.add('active');
+                    
+                    // Плавная прокрутка к активному слову
+                    currentWordElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'center'
+                    });
+                }
+            }
+        }
+        
+        // Управление плеером
+        async function playPause() {
+            if (vimeoPlayer) {
+                try {
+                    const paused = await vimeoPlayer.getPaused();
+                    if (paused) {
+                        await vimeoPlayer.play();
+                        showToast('▶️ Воспроизведение');
+                    } else {
+                        await vimeoPlayer.pause();
+                        showToast('⏸️ Пауза');
+                    }
+                } catch (error) {
+                    console.error('Error play/pause:', error);
+                }
+            }
+        }
+        
+        async function restart() {
+            if (vimeoPlayer) {
+                try {
+                    await vimeoPlayer.setCurrentTime(0);
+                    await vimeoPlayer.play();
+                    showToast('🔄 Начало урока');
+                } catch (error) {
+                    console.error('Error restart:', error);
+                }
+            }
+        }
+        
+        async function skipBack() {
+            if (vimeoPlayer) {
+                try {
+                    const currentTime = await vimeoPlayer.getCurrentTime();
+                    await vimeoPlayer.setCurrentTime(Math.max(0, currentTime - 5));
+                    showToast('⏪ На 5с назад');
+                } catch (error) {
+                    console.error('Error skip back:', error);
+                }
+            }
+        }
+        
+        async function skipForward() {
+            if (vimeoPlayer) {
+                try {
+                    const currentTime = await vimeoPlayer.getCurrentTime();
+                    const duration = await vimeoPlayer.getDuration();
+                    await vimeoPlayer.setCurrentTime(Math.min(duration, currentTime + 5));
+                    showToast('⏩ На 5с вперед');
+                } catch (error) {
+                    console.error('Error skip forward:', error);
+                }
+            }
+        }
+        
+        async function toggleMute() {
+            if (vimeoPlayer) {
+                try {
+                    const muted = await vimeoPlayer.getMuted();
+                    await vimeoPlayer.setMuted(!muted);
+                    showToast(!muted ? '🔇 Без звука' : '🔊 Звук включен');
+                } catch (error) {
+                    console.error('Error toggle mute:', error);
+                }
+            }
+        }
+        
+        async function changeSpeed(rate) {
+            if (vimeoPlayer) {
+                try {
+                    await vimeoPlayer.setPlaybackRate(rate);
+                    showToast(`🎚️ Скорость: ${rate}x`);
+                } catch (error) {
+                    console.error('Error change speed:', error);
+                }
+            }
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+        
+        function showError(message) {
+            document.getElementById('lessonTitle').textContent = 'Ошибка';
+            document.getElementById('transcript').innerHTML = `<div class="loading">${message}</div>`;
+        }
+        
+        // Обработчик кнопки "Назад" в Telegram
+        tg.BackButton.onClick(() => {
+            if (trackingInterval) clearInterval(trackingInterval);
+            tg.close();
+        });
+        
+        // Загружаем данные при старте
+        loadLessonData();
+    </script>
+</body>
+</html>
