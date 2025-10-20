@@ -3,307 +3,416 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Аудио Урок - Подсветка букв</title>
+    <title>Видео Урок</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://player.vimeo.com/api/player.js"></script>
     <style>
         body {
-            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             padding: 20px;
             background: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
             max-width: 100%;
             overflow-x: hidden;
+            margin: 0;
         }
-        
-        .audio-player {
+        .video-container {
             width: 100%;
-            margin: 15px 0;
-        }
-        
-        .transcript-container {
-            margin-top: 25px;
-            max-height: 60vh;
-            overflow-y: auto;
-            background: var(--tg-theme-secondary-bg-color, #f8f9fa);
-            border-radius: 16px;
-            padding: 20px;
-        }
-        
-        .transcript {
-            line-height: 2.2;
-            font-size: 24px;
-            font-weight: 500;
-            text-align: center;
-            letter-spacing: 0.5px;
-        }
-        
-        .letter {
-            display: inline-block;
-            min-width: 16px;
-            text-align: center;
-            transition: all 0.15s ease;
-            padding: 2px 1px;
-            margin: 0 1px;
-            border-radius: 4px;
+            height: 0;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
             position: relative;
+            margin: 15px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
         }
-        
-        .letter.active {
-            background: linear-gradient(135deg, var(--tg-theme-button-color, #40a7e3), #2d93d0);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            font-weight: 700;
-            transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(64, 167, 227, 0.3);
-        }
-        
-        .letter.space {
-            min-width: 8px;
-        }
-        
-        .letter.space.active::after {
-            content: '';
+        #vimeoPlayer {
             position: absolute;
-            bottom: -2px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            height: 3px;
-            background: var(--tg-theme-button-color, #40a7e3);
-            border-radius: 2px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
         }
-        
-        .word-boundary {
-            margin-right: 12px;
+        .transcript-container {
+            margin-top: 20px;
+            max-height: 50vh;
+            overflow-y: auto;
         }
-        
+        .transcript {
+            line-height: 1.8;
+            font-size: 18px;
+            padding: 10px;
+        }
+        .word {
+            transition: all 0.2s ease;
+            padding: 4px 6px;
+            margin: 2px;
+            border-radius: 6px;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .word.active {
+            background-color: var(--tg-theme-button-color, #40a7e3);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            font-weight: 600;
+            transform: scale(1.05);
+        }
+        .word:hover {
+            background-color: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
         .controls {
             display: flex;
-            gap: 10px;
-            margin: 20px 0;
+            gap: 8px;
+            margin: 15px 0;
             flex-wrap: wrap;
         }
-        
         button {
             background: var(--tg-theme-button-color, #40a7e3);
             color: var(--tg-theme-button-text-color, #ffffff);
             border: none;
-            padding: 14px 20px;
-            border-radius: 14px;
+            padding: 10px 14px;
+            border-radius: 10px;
             cursor: pointer;
             flex: 1;
-            min-width: 140px;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.2s ease;
+            min-width: 100px;
+            font-size: 14px;
+            transition: opacity 0.2s;
         }
-        
         button:hover {
             opacity: 0.9;
-            transform: translateY(-1px);
         }
-        
+        button:active {
+            opacity: 0.8;
+        }
         .lesson-title {
             text-align: center;
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
             color: var(--tg-theme-text-color, #000000);
         }
-        
-        .progress-indicator {
+        .loading {
             text-align: center;
-            margin-top: 15px;
+            padding: 40px;
+            font-size: 18px;
+        }
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
             font-size: 14px;
-            color: var(--tg-theme-hint-color, #999999);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
     <div class="lesson-title" id="lessonTitle">Загрузка урока...</div>
     
-    <audio id="audioPlayer" class="audio-player" controls>
-        Ваш браузер не поддерживает аудио элементы.
-    </audio>
+    <div class="video-container">
+        <div id="vimeoPlayer"></div>
+    </div>
     
     <div class="controls">
         <button onclick="playPause()">⏯️ Пауза/Старт</button>
         <button onclick="restart()">🔄 Заново</button>
-        <button onclick="slowDown()">🐢 Замедлить</button>
-        <button onclick="normalSpeed()">⚡ Нормально</button>
+        <button onclick="skipBack()">⏪ На 5с назад</button>
+        <button onclick="skipForward()">⏩ На 5с вперед</button>
+        <button onclick="toggleMute()">🔊 Вкл/Выкл звук</button>
+        <button onclick="changeSpeed(0.75)">🐢 Медленно</button>
+        <button onclick="changeSpeed(1.0)">⚡ Нормально</button>
+        <button onclick="changeSpeed(1.5)">🚀 Быстро</button>
     </div>
     
     <div class="transcript-container">
         <div id="transcript" class="transcript"></div>
     </div>
-    
-    <div class="progress-indicator" id="progressIndicator">Готов к воспроизведению</div>
+
+    <div class="toast" id="toast"></div>
 
     <script>
+        // Инициализация Telegram Web App
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.BackButton.show();
         
         let currentLesson = null;
-        let letters = [];
-        
+        let words = [];
+        let vimeoPlayer = null;
+        let trackingInterval = null;
+
+        // Получаем данные из URL параметров
         function loadLessonData() {
-            // Пример данных (в реальности получаем из URL параметров)
-            const exampleData = {
-                "audio_url": "https://example.com/audio/lesson1.mp3",
-                "title": "Урок 1 - Буквенная подсветка",
-                "letters": [
-                    {"start": 0.0, "end": 0.3, "text": "H", "isSpace": false},
-                    {"start": 0.3, "end": 0.6, "text": "e", "isSpace": false},
-                    {"start": 0.6, "end": 0.9, "text": "l", "isSpace": false},
-                    {"start": 0.9, "end": 1.2, "text": "l", "isSpace": false},
-                    {"start": 1.2, "end": 1.5, "text": "o", "isSpace": false},
-                    {"start": 1.5, "end": 1.6, "text": " ", "isSpace": true},
-                    {"start": 1.6, "end": 1.9, "text": "w", "isSpace": false},
-                    {"start": 1.9, "end": 2.2, "text": "o", "isSpace": false},
-                    {"start": 2.2, "end": 2.5, "text": "r", "isSpace": false},
-                    {"start": 2.5, "end": 2.8, "text": "l", "isSpace": false},
-                    {"start": 2.8, "end": 3.1, "text": "d", "isSpace": false},
-                    {"start": 3.1, "end": 3.4, "text": "!", "isSpace": false}
-                ]
-            };
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
             
-            currentLesson = exampleData;
-            initializePlayer();
+            if (encodedData) {
+                try {
+                    const decodedData = atob(encodedData);
+                    currentLesson = JSON.parse(decodedData);
+                    initializePlayer();
+                } catch (error) {
+                    showError('Ошибка загрузки данных урока');
+                }
+            } else {
+                showError('Данные урока не переданы');
+            }
         }
         
         function initializePlayer() {
             if (!currentLesson) return;
             
-            const audioPlayer = document.getElementById('audioPlayer');
-            audioPlayer.src = currentLesson.audio_url;
-            letters = currentLesson.letters || [];
+            // Инициализируем Vimeo плеер
+            if (currentLesson.vimeo_id) {
+                initializeVimeoPlayer(currentLesson.vimeo_id);
+            } else {
+                showError('Vimeo ID не указан');
+            }
             
+            // Устанавливаем слова
+            words = currentLesson.words || [];
+            
+            // Отображаем интерфейс
             document.getElementById('lessonTitle').textContent = currentLesson.title;
             renderTranscript();
+        }
+        
+        function initializeVimeoPlayer(vimeoId) {
+            const options = {
+                id: parseInt(vimeoId),
+                width: '100%',
+                height: '100%',
+                autoplay: false,
+                muted: false,
+                controls: true,
+                responsive: true
+            };
             
-            audioPlayer.addEventListener('timeupdate', highlightCurrentLetter);
-            audioPlayer.addEventListener('play', updateProgressIndicator);
-            audioPlayer.addEventListener('pause', updateProgressIndicator);
+            vimeoPlayer = new Vimeo.Player('vimeoPlayer', options);
+            
+            // Обработчики событий Vimeo
+            vimeoPlayer.ready().then(() => {
+                console.log('Vimeo player ready');
+                showToast('✅ Видео готово к воспроизведению');
+            });
+            
+            vimeoPlayer.on('play', function() {
+                startTracking();
+                showToast('▶️ Воспроизведение');
+            });
+            
+            vimeoPlayer.on('pause', function() {
+                stopTracking();
+                showToast('⏸️ Пауза');
+            });
+            
+            vimeoPlayer.on('timeupdate', function(data) {
+                highlightCurrentWord(data.seconds);
+            });
+            
+            vimeoPlayer.on('loaded', function() {
+                console.log('Video loaded');
+            });
+            
+            vimeoPlayer.on('error', function(error) {
+                console.error('Vimeo error:', error);
+                showToast('❌ Ошибка загрузки видео');
+            });
+        }
+        
+        function startTracking() {
+            // Запускаем отслеживание времени для плавной подсветки
+            if (trackingInterval) clearInterval(trackingInterval);
+            
+            trackingInterval = setInterval(async () => {
+                if (vimeoPlayer) {
+                    try {
+                        const currentTime = await vimeoPlayer.getCurrentTime();
+                        highlightCurrentWord(currentTime);
+                    } catch (error) {
+                        console.error('Error getting time:', error);
+                    }
+                }
+            }, 100);
+        }
+        
+        function stopTracking() {
+            if (trackingInterval) {
+                clearInterval(trackingInterval);
+                trackingInterval = null;
+            }
         }
         
         function renderTranscript() {
             const transcriptDiv = document.getElementById('transcript');
             transcriptDiv.innerHTML = '';
             
-            let currentWord = [];
+            words.forEach((word, index) => {
+                const wordSpan = document.createElement('span');
+                wordSpan.className = 'word';
+                wordSpan.textContent = word.text + ' ';
+                wordSpan.dataset.index = index;
+                wordSpan.dataset.start = word.start;
+                transcriptDiv.appendChild(wordSpan);
+            });
             
-            letters.forEach((letter, index) => {
-                const letterSpan = document.createElement('span');
-                letterSpan.className = `letter ${letter.isSpace ? 'space' : ''}`;
-                letterSpan.textContent = letter.text;
-                letterSpan.dataset.index = index;
-                letterSpan.dataset.start = letter.start;
-                
-                transcriptDiv.appendChild(letterSpan);
+            // Добавляем обработчики для кликов по словам
+            addWordClickHandlers();
+        }
+        
+        function addWordClickHandlers() {
+            document.querySelectorAll('.word').forEach(wordSpan => {
+                wordSpan.addEventListener('click', function() {
+                    const startTime = parseFloat(this.dataset.start);
+                    playFromTime(startTime);
+                });
             });
         }
         
-        function highlightCurrentLetter() {
-            const currentTime = document.getElementById('audioPlayer').currentTime;
-            
-            // Сбрасываем все подсветки
-            document.querySelectorAll('.letter').forEach(letter => {
-                letter.classList.remove('active');
+        async function playFromTime(startTime) {
+            if (vimeoPlayer) {
+                try {
+                    await vimeoPlayer.setCurrentTime(startTime);
+                    await vimeoPlayer.play();
+                    showToast('🎬 Переходим к фразе...');
+                } catch (error) {
+                    console.error('Error seeking:', error);
+                }
+            }
+        }
+        
+        function highlightCurrentWord(currentTime) {
+            // Убираем подсветку со всех слов
+            document.querySelectorAll('.word').forEach(word => {
+                word.classList.remove('active');
             });
             
-            // Находим текущую букву
-            const currentLetterIndex = letters.findIndex(letter => 
-                currentTime >= letter.start && currentTime < letter.end
+            // Находим и подсвечиваем текущее слово
+            const currentWordIndex = words.findIndex(word => 
+                currentTime >= word.start && currentTime < word.end
             );
             
-            if (currentLetterIndex !== -1) {
-                const currentLetter = document.querySelector(`.letter[data-index="${currentLetterIndex}"]`);
-                if (currentLetter) {
-                    currentLetter.classList.add('active');
+            if (currentWordIndex !== -1) {
+                const currentWordElement = document.querySelector(`.word[data-index="${currentWordIndex}"]`);
+                if (currentWordElement) {
+                    currentWordElement.classList.add('active');
                     
-                    // Плавная прокрутка к активной букве
-                    currentLetter.scrollIntoView({
+                    // Плавная прокрутка к активному слову
+                    currentWordElement.scrollIntoView({
                         behavior: 'smooth',
                         block: 'center',
                         inline: 'center'
                     });
                 }
-                
-                // Подсвечиваем все пройденные буквы
-                for (let i = 0; i < currentLetterIndex; i++) {
-                    const passedLetter = document.querySelector(`.letter[data-index="${i}"]`);
-                    if (passedLetter && !passedLetter.classList.contains('active')) {
-                        passedLetter.style.opacity = '0.7';
+            }
+        }
+        
+        // Управление плеером
+        async function playPause() {
+            if (vimeoPlayer) {
+                try {
+                    const paused = await vimeoPlayer.getPaused();
+                    if (paused) {
+                        await vimeoPlayer.play();
+                        showToast('▶️ Воспроизведение');
+                    } else {
+                        await vimeoPlayer.pause();
+                        showToast('⏸️ Пауза');
                     }
+                } catch (error) {
+                    console.error('Error play/pause:', error);
                 }
             }
-            
-            updateProgressIndicator();
         }
         
-        function updateProgressIndicator() {
-            const audioPlayer = document.getElementById('audioPlayer');
-            const progress = document.getElementById('progressIndicator');
-            const currentTime = audioPlayer.currentTime;
-            const duration = audioPlayer.duration || 1;
-            
-            const percent = (currentTime / duration) * 100;
-            const currentWord = getCurrentWord(currentTime);
-            
-            progress.textContent = `${Math.round(percent)}% • ${formatTime(currentTime)} / ${formatTime(duration)} ${currentWord ? `• "${currentWord}"` : ''}`;
-        }
-        
-        function getCurrentWord(currentTime) {
-            // Находим слово, в котором находится текущее время
-            let word = '';
-            let inWord = false;
-            
-            for (const letter of letters) {
-                if (!letter.isSpace && currentTime >= letter.start && currentTime < letter.end) {
-                    word += letter.text;
-                    inWord = true;
-                } else if (inWord && letter.isSpace) {
-                    break;
+        async function restart() {
+            if (vimeoPlayer) {
+                try {
+                    await vimeoPlayer.setCurrentTime(0);
+                    await vimeoPlayer.play();
+                    showToast('🔄 Начало урока');
+                } catch (error) {
+                    console.error('Error restart:', error);
                 }
             }
-            
-            return word || null;
         }
         
-        function formatTime(seconds) {
-            if (!seconds || isNaN(seconds)) return '0:00';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-        
-        function playPause() {
-            const audioPlayer = document.getElementById('audioPlayer');
-            if (audioPlayer.paused) {
-                audioPlayer.play();
-            } else {
-                audioPlayer.pause();
+        async function skipBack() {
+            if (vimeoPlayer) {
+                try {
+                    const currentTime = await vimeoPlayer.getCurrentTime();
+                    await vimeoPlayer.setCurrentTime(Math.max(0, currentTime - 5));
+                    showToast('⏪ На 5с назад');
+                } catch (error) {
+                    console.error('Error skip back:', error);
+                }
             }
         }
         
-        function restart() {
-            const audioPlayer = document.getElementById('audioPlayer');
-            audioPlayer.currentTime = 0;
-            audioPlayer.play();
+        async function skipForward() {
+            if (vimeoPlayer) {
+                try {
+                    const currentTime = await vimeoPlayer.getCurrentTime();
+                    const duration = await vimeoPlayer.getDuration();
+                    await vimeoPlayer.setCurrentTime(Math.min(duration, currentTime + 5));
+                    showToast('⏩ На 5с вперед');
+                } catch (error) {
+                    console.error('Error skip forward:', error);
+                }
+            }
         }
         
-        function slowDown() {
-            const audioPlayer = document.getElementById('audioPlayer');
-            audioPlayer.playbackRate = 0.75;
+        async function toggleMute() {
+            if (vimeoPlayer) {
+                try {
+                    const muted = await vimeoPlayer.getMuted();
+                    await vimeoPlayer.setMuted(!muted);
+                    showToast(!muted ? '🔇 Без звука' : '🔊 Звук включен');
+                } catch (error) {
+                    console.error('Error toggle mute:', error);
+                }
+            }
         }
         
-        function normalSpeed() {
-            const audioPlayer = document.getElementById('audioPlayer');
-            audioPlayer.playbackRate = 1.0;
+        async function changeSpeed(rate) {
+            if (vimeoPlayer) {
+                try {
+                    await vimeoPlayer.setPlaybackRate(rate);
+                    showToast(`🎚️ Скорость: ${rate}x`);
+                } catch (error) {
+                    console.error('Error change speed:', error);
+                }
+            }
         }
         
-        // Обработчик кнопки "Назад"
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+        
+        function showError(message) {
+            document.getElementById('lessonTitle').textContent = 'Ошибка';
+            document.getElementById('transcript').innerHTML = `<div class="loading">${message}</div>`;
+        }
+        
+        // Обработчик кнопки "Назад" в Telegram
         tg.BackButton.onClick(() => {
+            if (trackingInterval) clearInterval(trackingInterval);
             tg.close();
         });
         
